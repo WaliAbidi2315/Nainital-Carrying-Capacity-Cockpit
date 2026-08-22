@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.DS_Store
+.streamlit/secrets.toml
+
+# Raw survey exports: keep these private unless the repository itself is private.
+data/*.xlsx
+data/*.xls
+data/*.csv
+
+# Local/generated files
+*.log
+.pytest_cache/
