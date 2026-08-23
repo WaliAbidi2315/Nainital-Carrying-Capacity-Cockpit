@@ -4,15 +4,14 @@ Municipal decision-support dashboard for sustainable mountain tourism governance
 Built for the Urban Immersion fieldwork, BS Analytics & Sustainability Studies, TISS (2024-28).
 
 Run:  streamlit run app.py
-Place KoboToolbox exports (Enterprise*.xlsx, Location*.xlsx, *Residents*.xlsx,
-Workers*.xlsx, Tourist*.xlsx) in ./data, or point APP_DATA_DIR to a private data directory.
-The app can fall back to clearly labeled synthetic data for demos; set
-ALLOW_SYNTHETIC_FALLBACK=0 in production if you want missing/invalid source data to fail loudly.
-Open the Data Diagnostics page to see exactly which files were used.
+Place available KoboToolbox exports (Enterprise*.xlsx, Location*.xlsx, *Residents*.xlsx,
+Workers*.xlsx, Tourist*.xlsx) in the same folder or a ./data subfolder. Any file not found
+falls back to a labeled synthetic dataset so the app still runs end-to-end. Open the
+"Data Diagnostics" expander at the top of the app at any time to see exactly which files
+were used and how complete each derived field is.
 """
 
 import glob
-import os
 import re
 import numpy as np
 import pandas as pd
@@ -139,12 +138,9 @@ def norm(series, invert=False):
     out = (s - lo) / (hi - lo) * 100
     return 100 - out if invert else out
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get("APP_DATA_DIR", os.path.join(APP_DIR, "data"))
-
 def find_file(*patterns):
     for p in patterns:
-        matches = glob.glob(os.path.join(DATA_DIR, p)) + glob.glob(os.path.join(APP_DIR, p))
+        matches = glob.glob(f"data/{p}") + glob.glob(p)
         if matches:
             return matches[0]
     return None
@@ -301,11 +297,8 @@ def load_all():
 
     def try_load(name, pattern, builder, synth_fn, synth_n):
         path = find_file(pattern)
-        allow_synthetic = os.environ.get("ALLOW_SYNTHETIC_FALLBACK", "1").strip().lower() in ("1", "true", "yes")
         if not path:
-            if not allow_synthetic:
-                raise FileNotFoundError(f"No source file found for {name}. Expected pattern: {pattern}")
-            diag[name] = {"status": "synthetic", "reason": "No matching file found in data directory.", "path": None}
+            diag[name] = {"status": "synthetic", "reason": "No matching file found in folder.", "path": None}
             return synth_fn(), "synthetic"
         try:
             raw = pd.read_excel(path)
@@ -313,8 +306,6 @@ def load_all():
             diag[name] = {"status": "real", "reason": f"Loaded {len(out)} rows from {path.split('/')[-1]}.", "path": path}
             return out, "real"
         except Exception as e:
-            if not allow_synthetic:
-                raise RuntimeError(f"Failed to parse {name} source file '{path}': {e}") from e
             diag[name] = {"status": "synthetic", "reason": f"Found '{path}' but failed to parse it ({e}). Using synthetic fallback.", "path": path}
             return synth_fn(n=synth_n), "synthetic"
 
@@ -730,13 +721,28 @@ if page.startswith("🗺️"):
 
     c3, c4 = st.columns(2)
     with c3:
-        fig3 = px.bar(zone_table.sort_values("emergency_min"), x="zone_name", y="emergency_min",
-                      template=PLOTLY_TEMPLATE, title="Emergency Response Time by Zone (minutes)",
-                      color_discrete_sequence=[CRIMSON])
-        fig3.update_layout(xaxis_title="")
+        emerg_df = zone_table[["zone_name", "emergency_min"]].copy()
+        emerg_df["has_data"] = emerg_df["emergency_min"].notna()
+        n_missing_emerg = int((~emerg_df["has_data"]).sum())
+        emerg_df["plot_val"] = emerg_df["emergency_min"].fillna(0)
+        emerg_df["label"] = np.where(emerg_df["has_data"],
+                                      emerg_df["emergency_min"].map(lambda v: f"{v:.0f}"),
+                                      "No data")
+        emerg_df = emerg_df.sort_values("plot_val")
+        fig3 = px.bar(emerg_df, x="zone_name", y="plot_val", text="label",
+                      color="has_data", color_discrete_map={True: CRIMSON, False: "#CBD5E1"},
+                      template=PLOTLY_TEMPLATE, title="Emergency Response Time by Zone (minutes)")
+        fig3.update_traces(textposition="outside")
+        fig3.update_layout(xaxis_title="", yaxis_title="Minutes", showlegend=False)
         st.plotly_chart(fig3, width='stretch')
+        if n_missing_emerg:
+            st.markdown(f"""<div class="callout amber">⚠️ <b>{n_missing_emerg} zone(s) show "No data"</b> —
+            the ambulance/fire response-time question was left blank for those audits in the source
+            KoboToolbox file, not a charting error. Treat these as unaudited, not as zero-risk.</div>""",
+                        unsafe_allow_html=True)
         st.caption("Zones above 30 minutes represent a genuine public-safety gap independent of tourism "
-                   "volume — worth flagging to NMC regardless of any carrying-capacity policy.")
+                   "volume — worth flagging to NMC regardless of any carrying-capacity policy. Grey bars "
+                   "mark zones with no recorded response-time data.")
     with c4:
         hygiene_df = pd.DataFrame({
             "Zone": zone_table["zone_name"], "Toilets": zone_table["toilets"], "Dustbins": zone_table["dustbins"],
@@ -748,28 +754,35 @@ if page.startswith("🗺️"):
         st.caption("Sparse toilet/dustbin counts in high-footfall zones directly predict the informal "
                    "waste and sanitation complaints that show up later in the Resident Friction tab.")
 
-    st.subheader("Zone Profile Comparison (Radar)")
+    st.subheader("Zone Profile Comparison (Heatmap)")
     radar_dims = ["Emergency_Preparedness", "Accessibility", "Digital_Comms_Infra", "Site_Hygiene"]
-    top3 = zone_table.nlargest(min(3, len(zone_table)), "Site_Infrastructure_Readiness")
-    bottom3 = zone_table.nsmallest(min(3, len(zone_table)), "Site_Infrastructure_Readiness")
-    compare_zones = pd.concat([top3, bottom3]).drop_duplicates(subset="zone_name")
-    fig_radar = go.Figure()
-    for _, row in compare_zones.iterrows():
-        fig_radar.add_trace(go.Scatterpolar(r=[row[d] for d in radar_dims] + [row[radar_dims[0]]],
-                                             theta=radar_dims + [radar_dims[0]], fill="toself", name=row["zone_name"]))
-    fig_radar.update_layout(template=PLOTLY_TEMPLATE, polar=dict(radialaxis=dict(range=[0, 100])),
-                             title="Best vs. Worst Zones — Infrastructure Dimension Profile", height=460)
+    heat_order = zone_table.copy()
+    heat_order["_zone_num"] = heat_order["zone_name"].str.extract(r"(\d+)").astype(float)
+    heat_order = heat_order.sort_values("_zone_num")
+    heat_z = heat_order[radar_dims].values
+    fig_radar = go.Figure(data=go.Heatmap(
+        z=heat_z, x=[d.replace("_", " ") for d in radar_dims], y=heat_order["zone_name"],
+        colorscale=[[0, CRIMSON], [0.5, AMBER], [1, EMERALD]], zmin=0, zmax=100,
+        text=np.round(heat_z, 0), texttemplate="%{text:.0f}", textfont=dict(size=11),
+        colorbar=dict(title="Score"),
+    ))
+    fig_radar.update_layout(template=PLOTLY_TEMPLATE,
+                             title="All Zones — Infrastructure Dimension Profile", height=460,
+                             xaxis_title="", yaxis_title="",
+                             yaxis=dict(autorange="reversed"))
     st.plotly_chart(fig_radar, width='stretch')
-    st.caption("Overlaying the strongest and weakest zones shows *which specific dimension* drives the "
-               "gap — a zone can fail on Emergency Preparedness alone while matching top zones everywhere "
-               "else, which changes the policy fix from 'general upgrade' to one targeted intervention.")
+    st.caption("Every zone is shown (ordered Zone 1 → Zone N top-to-bottom), so nothing is hidden by "
+               "a 'top vs. bottom' filter. Read across a row to see which *specific* dimension drives a "
+               "zone's weakness — a zone can fail on Emergency Preparedness alone while matching the best "
+               "zones everywhere else, which changes the fix from 'general upgrade' to one targeted "
+               "intervention. Grey/blank cells indicate a missing underlying field for that zone.")
 
     st.markdown(f"""<div class="outcome-box"><h4>🔍 Analysis — Site Infrastructure Readiness</h4>
     <ul>
     <li><b>Uneven readiness across short distances:</b> the {ready_top['Site_Infrastructure_Readiness'] - ready_bottom['Site_Infrastructure_Readiness']:.0f}-point gap between the strongest and weakest zones — reachable on foot in minutes — reveals that infrastructure investment has not been spatially uniform along Mall Road, creating invisible risk clusters for visitors concentrated in low-readiness zones.</li>
     <li><b>Emergency response is the critical gap:</b> with an average response time of {safe_num(safe_mean(zone_table['emergency_min']), '{:.0f}')} minutes (ranging up to {safe_num(zone_table['emergency_min'].max(), '{:.0f}')} minutes in the slowest zones), emergency preparedness is the sub-dimension most likely to drive overall readiness failure — a zone can score well on hygiene and accessibility yet remain a public-safety liability.</li>
     <li><b>Accommodation density does not predict readiness:</b> {"the " + ("positive" if (readiness_accom_corr or 0) > 0 else "negative") + f" correlation (r={readiness_accom_corr:.2f}) between readiness scores and registered accommodation units suggests infrastructure upgrades have " + ("broadly tracked" if (readiness_accom_corr or 0) > 0 else "not kept pace with") + " where hotels and homestays are actually located." if not pd.isna(readiness_accom_corr) else "Insufficient zone data to assess whether readiness tracks accommodation density — a key gap for future audits."}</li>
-    <li><b>Radar profiles reveal targeted fixes, not blanket upgrades:</b> the zone-level radar comparison shows that most low-scoring zones fail on one or two specific dimensions rather than uniformly — meaning a precise intervention (e.g., adding emergency access points or directional signage) will close the readiness gap far more efficiently than a general infrastructure mandate.</li>
+    <li><b>Heatmap profiles reveal targeted fixes, not blanket upgrades:</b> the zone-level dimension heatmap shows that most low-scoring zones fail on one or two specific dimensions rather than uniformly — meaning a precise intervention (e.g., adding emergency access points or directional signage) will close the readiness gap far more efficiently than a general infrastructure mandate.</li>
     </ul></div>""", unsafe_allow_html=True)
 
 # ============================================================================
@@ -849,7 +862,8 @@ elif page.startswith("💧"):
             fig8 = px.histogram(seas, nbins=20, template=PLOTLY_TEMPLATE,
                                 title="Energy Seasonality Load (% bill increase, peak vs. off-season)",
                                 color_discrete_sequence=[AMBER])
-            fig8.update_layout(xaxis_title="% increase in electricity bill", showlegend=False)
+            fig8.update_layout(xaxis_title="% increase in electricity bill",
+                                yaxis_title="Number of Enterprises", showlegend=False)
             st.plotly_chart(fig8, width='stretch')
             st.caption(f"Median seasonal bill spike is {seas.median():.0f}% — enterprises effectively run "
                        f"two different cost structures a year, which strains cash flow exactly when "
@@ -981,11 +995,13 @@ elif page.startswith("⚖️"):
     with c1:
         ph = res_s["piped_hours"].dropna().clip(upper=24)
         if len(ph) > 0:
-            fig11 = px.histogram(ph, nbins=15, template=PLOTLY_TEMPLATE,
-                                 title="Distribution of Daily Piped Water Hours (Residents)",
-                                 color_discrete_sequence=[BLUE])
-            fig11.update_layout(xaxis_title="Hours/day", showlegend=False,
-                                xaxis=dict(range=[0, 24]))
+            ph_counts = ph.value_counts().sort_index().reset_index()
+            ph_counts.columns = ["Hours/day", "Households"]
+            fig11 = px.bar(ph_counts, x="Hours/day", y="Households", template=PLOTLY_TEMPLATE,
+                           title="Distribution of Daily Piped Water Hours (Residents)",
+                           color_discrete_sequence=[BLUE])
+            fig11.update_layout(xaxis_title="Hours/day", yaxis_title="Number of Households",
+                                showlegend=False, xaxis=dict(dtick=1))
             st.plotly_chart(fig11, width='stretch')
             st.caption(f"Median household receives {ph.median():.0f} hours/day of piped supply. Households "
                        f"on the low end are the direct target for any 'additional piped hours' policy "
@@ -1036,9 +1052,11 @@ elif page.startswith("⚖️"):
     }).dropna()
     if len(comp_df) > 0:
         fig15 = px.bar(comp_df, x="Metric", y="Value", color="Metric", template=PLOTLY_TEMPLATE,
-                      title="Sample-Wide Trade-Off: Resident Friction vs. Tourist Experience",
-                      color_discrete_sequence=[CRIMSON, EMERALD, BLUE])
-        fig15.update_layout(showlegend=False, xaxis_title="")
+                      title="Resident Friction vs. Tourist Satisfaction & Spend (all scaled 0–100)",
+                      color_discrete_sequence=[CRIMSON, EMERALD, BLUE], text="Value")
+        fig15.update_traces(texttemplate="%{text:.0f}", textposition="outside")
+        fig15.update_layout(showlegend=False, xaxis_title="Metric",
+                            yaxis_title="Index Value (0–100 scale)", yaxis_range=[0, 105])
         st.plotly_chart(fig15, width='stretch')
     st.caption("This is intentionally a single Mall-Road-wide comparison, not a per-zone paired chart — "
                "Tourist responses carry no coordinates, so any zone-specific pairing would fabricate a "
@@ -1047,6 +1065,24 @@ elif page.startswith("⚖️"):
 
     st.markdown("---")
     st.subheader("Informal Livelihood Vulnerability Index (ILVI) — Mall-Road-wide, Worker sample")
+    st.markdown(f"""<div class="callout blue">
+    <b>How ILVI is calculated:</b> ILVI is a 0–100 composite built entirely from Worker-survey fields,
+    combining four weighted components —<br>
+    &nbsp;&nbsp;• <b>Seasonality Exposure (30%)</b> — derived from months worked in the past year; fewer
+    months worked means higher exposure to the tourist season's boom-bust cycle.<br>
+    &nbsp;&nbsp;• <b>Contract Informality (25%)</b> — whether the worker has a formal, written employment
+    contract versus an informal/verbal arrangement.<br>
+    &nbsp;&nbsp;• <b>Income Concentration Risk (25%)</b> — how dependent the worker's total household
+    income is on this single tourism-linked job, versus having other income sources to fall back on.<br>
+    &nbsp;&nbsp;• <b>Safety Net Gap (20%)</b> — absence of health insurance, accident coverage, or other
+    formal social-security protection tied to the job.<br><br>
+    <b>Why it matters:</b> each component on its own is a soft signal a worker could plausibly absorb.
+    ILVI is important because it captures how these risks <i>compound</i> — a worker who is both seasonal
+    <i>and</i> informally contracted <i>and</i> financially dependent on that one job <i>and</i> uninsured
+    has almost no buffer against a bad tourist season, an injury, or a policy change that reduces footfall.
+    It is reported only as a Mall-Road-wide average (not per zone) because the Workers survey instrument
+    carries no location coordinates, so any zone-level ILVI claim would be fabricated.
+    </div>""", unsafe_allow_html=True)
     c5, c6 = st.columns(2)
     with c5:
         if len(ilvi_by_sector) > 0:
@@ -1076,11 +1112,16 @@ elif page.startswith("⚖️"):
     st.subheader("Worker Income: Peak vs. Off-Season, by Sector")
     inc_df = work_s[["sector", "income_peak", "income_off"]].dropna()
     if len(inc_df) >= 10:
-        inc_melt = inc_df.melt(id_vars="sector", var_name="Season", value_name="Monthly Income (₹)")
+        inc_agg = inc_df.groupby("sector")[["income_peak", "income_off"]].mean().reset_index()
+        inc_melt = inc_agg.melt(id_vars="sector", var_name="Season", value_name="Monthly Income (₹)")
         inc_melt["Season"] = inc_melt["Season"].map({"income_peak": "Peak Season", "income_off": "Off-Season"})
-        fig_inc = px.box(inc_melt, x="sector", y="Monthly Income (₹)", color="Season", template=PLOTLY_TEMPLATE,
-                         title="Income Volatility by Sector")
-        fig_inc.update_layout(xaxis_title="")
+        inc_melt["Label"] = inc_melt["Monthly Income (₹)"].map(lambda v: f"₹{v:,.0f}")
+        fig_inc = px.bar(inc_melt, x="sector", y="Monthly Income (₹)", color="Season", barmode="group",
+                         text="Label", template=PLOTLY_TEMPLATE,
+                         title="Worker Income: Peak vs. Off-Season, by Sector",
+                         color_discrete_sequence=[CRIMSON, EMERALD])
+        fig_inc.update_traces(textposition="outside")
+        fig_inc.update_layout(xaxis_title="Sector", yaxis_title="Avg. Monthly Income (₹)", legend_title="")
         st.plotly_chart(fig_inc, width='stretch')
         gap_by_sector = (inc_df.groupby("sector").apply(lambda g: (g["income_peak"] - g["income_off"]).mean())
                           .sort_values(ascending=False))
