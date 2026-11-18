@@ -4,9 +4,13 @@
 
 This repository's Streamlit application is the portfolio experience. It is designed to be explored directly: navigate the five dashboard sections, inspect the underlying variable definitions and data diagnostics, and test illustrative policy scenarios.
 
-## Explore the application
+## Explore the live dashboard
 
-Run locally:
+<https://nainital-fw-dashboard.streamlit.app/>
+
+The hosted Streamlit application is the primary portfolio experience. Open it to explore the interactive carrying-capacity cockpit.
+
+## Run locally
 
 ```bash
 python -m venv .venv
