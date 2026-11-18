@@ -1,91 +1,64 @@
 # Nainital Carrying Capacity Cockpit
 
-A Streamlit decision-support dashboard for sustainable mountain tourism governance in Nainital/Mall Road, built from Urban Immersion fieldwork.
+**An interactive decision-support dashboard for understanding the pressures of tourism on infrastructure, water and energy systems, residents, workers and local enterprises along Nainital's Mall Road.**
 
-## What is included
+This repository's Streamlit application is the portfolio experience. It is designed to be explored directly: navigate the five dashboard sections, inspect the underlying variable definitions and data diagnostics, and test illustrative policy scenarios.
 
-- Site Infrastructure Readiness & Physical Carrying Capacity Proxy
-- Water & Energy Stress Cockpit
-- Resident Friction & Livelihood Vulnerability
-- Policy Scenario Simulator
-- Variable Dictionary & Data Diagnostics
-- Nearest-neighbour zone aggregation for geotagged enterprise/resident records
-- Explicit synthetic-data fallback for demonstration mode
+## Explore the application
 
-The dashboard's own documentation states that its composite indices are aggregate/associational measures and that scenario projections are illustrative rather than causal.
-
-## Project structure
-
-```text
-nainital-carrying-capacity-cockpit/
-├── app.py
-├── requirements.txt
-├── README.md
-├── .env.example
-├── .gitignore
-├── .streamlit/
-│   └── config.toml
-└── data/
-    └── <private KoboToolbox exports>
-```
-
-## Run locally
+Run locally:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-
-export ALLOW_SYNTHETIC_FALLBACK=0
 streamlit run app.py
 ```
 
-On Windows PowerShell:
+For a hosted portfolio, deploy this repository using [Streamlit Community Cloud](https://share.streamlit.io/): select the repository, branch `main`, and main file `app.py`.
 
-```powershell
-$env:ALLOW_SYNTHETIC_FALLBACK="0"
-streamlit run app.py
-```
+## What the cockpit contains
 
-## Publishing safely
+| Section | What to explore |
+|---|---|
+| Site Infrastructure Readiness | Emergency preparedness, accessibility, digital communications, hygiene and a physical carrying-capacity proxy |
+| Water & Energy Stress | Enterprise water constraints, supply deficits, water harvesting and energy indicators |
+| Resident Friction & Livelihood Vulnerability | Resident mobility/noise/cost friction and worker livelihood vulnerability |
+| Policy Scenario Simulator | Illustrative changes to tourism surge, piped water, rainwater harvesting and green energy |
+| Variable Dictionary & Diagnostics | Formula definitions, source-field completeness, dataset status and geotagging coverage |
 
-### Recommended: private data + private repository
+## Analytical design
 
-Keep respondent-level XLSX files out of a public GitHub repository. The current repository is configured to ignore `data/*.xlsx`.
+- Five fieldwork datasets: Location, Enterprise, Residents, Workers and Tourist.
+- Question-text-based column resolution for KoboToolbox exports.
+- Nearest-neighbour zone assignment for geotagged enterprise and resident records using `scipy.spatial.cKDTree`.
+- Separate zone-level aggregation before combining enterprise and resident indicators.
+- Composite indices documented in the app: Site Infrastructure Readiness, Physical Carrying Capacity Proxy, WSCI, RFEI and ILVI.
+- Explicit synthetic-data fallback for demonstration when source files are absent or cannot be parsed.
 
-For a production deployment, point the app at a private data directory using:
+## Data privacy — read before deployment
 
-```text
-APP_DATA_DIR=/path/to/private/data
-ALLOW_SYNTHETIC_FALLBACK=0
-```
+The survey exports are respondent-level fieldwork data. **Do not publish raw XLSX/CSV exports in a public repository or deploy them in a public app.** Use an approved anonymised dataset or a private data source, and remove direct identifiers and precise household/business coordinates where appropriate. A `.gitignore` rule does not remove files that are already tracked in Git history.
 
-If the hosting platform cannot provide a private filesystem/data mount, use a private repository or replace the file loader with a protected data source.
+Configure private data using `APP_DATA_DIR` in the hosting environment if the deployment supports a protected data mount. Do not put secrets or private data in source code, Git history, public app logs, or public Streamlit secrets.
 
-### Public demo
+## Interpretation and limitations
 
-For a public showcase, publish a version containing only synthetic/anonymized data. Do not expose raw survey exports, respondent identifiers, exact household/business coordinates, or other potentially identifying fields.
+- Composite indices are aggregate/associational measures, not causal estimates.
+- The policy simulator uses illustrative multiplicative elasticities, not fitted causal coefficients.
+- Enterprise and resident records are associated only after independent aggregation to the nearest audited location zone; this is not respondent-to-respondent matching.
+- Workers and tourists remain Mall-Road-wide where equivalent coordinates are unavailable.
+- Synthetic fallback values are demonstrations, not observed fieldwork findings. Always inspect Data Diagnostics and verify that the intended datasets report `REAL` before interpreting outputs.
 
-## Data assumptions
+## Tech stack
 
-The app expects KoboToolbox "all versions" exports and resolves fields by question text rather than relying on fixed column positions. The dashboard uses five source datasets:
+Python · Streamlit · pandas · NumPy · Plotly · SciPy · scikit-learn · openpyxl
 
-1. Location
-2. Enterprise
-3. Residents
-4. Workers
-5. Tourist
+## Project context
 
-Enterprise and resident records are spatially joined to the nearest audited location zone when coordinates are available. Workers and tourists remain Mall-Road-wide because they do not provide the same coordinate basis.
+Urban Immersion fieldwork · BS Analytics & Sustainability Studies · Tata Institute of Social Sciences (TISS), 2024–28.
 
-## Production checklist
+---
 
-- [ ] Confirm the deployed dataset is the intended, cleaned version.
-- [ ] Keep raw respondent-level data private.
-- [ ] Set `ALLOW_SYNTHETIC_FALLBACK=0`.
-- [ ] Check the Data Diagnostics page after deployment.
-- [ ] Verify all five datasets report `real`.
-- [ ] Verify geotagging coverage before interpreting zone maps.
-- [ ] Review the Variable Dictionary before presenting composite indices.
-- [ ] Clearly label scenario outputs as illustrative, not causal.
-- [ ] Add a project/contact page if this is being shared publicly.
+*The dashboard is the primary portfolio artifact; this README provides context, setup instructions, methodology and responsible-use notes.*
