@@ -600,8 +600,20 @@ if "nav_page" not in st.session_state:
 real_sets = [k for k, v in SRC.items() if v == "real"]
 synth_sets = [k for k, v in SRC.items() if v == "synthetic"]
 
-st.title("🏔️ The Nainital Carrying Capacity Cockpit")
-st.caption("Mapping trade-offs between tourists, enterprises, workers, and residents on Mall Road")
+# Portfolio-style application masthead
+st.image("assets/cover.svg", use_container_width=True)
+st.title("The Nainital Carrying Capacity Cockpit")
+st.markdown("**An interactive decision-support dashboard for sustainable mountain tourism governance.**")
+st.caption("Urban Immersion fieldwork · Mall Road, Nainital · Explore infrastructure, water and energy stress, resident experience, livelihoods and policy scenarios.")
+with st.expander("About this project · methods and responsible interpretation"):
+    st.markdown("""
+    This cockpit brings together five fieldwork datasets — Location, Enterprise, Residents,
+    Workers and Tourist — to explore tourism-related infrastructure and livelihood pressures.
+    Enterprise and resident records are aggregated independently to audited zones before
+    zone-level comparisons. Composite indices are associational, while policy scenario
+    outputs are illustrative rather than causal. Check **Variable Dictionary & Diagnostics**
+    to inspect data provenance, completeness and whether each dataset is real or synthetic.
+    """)
 
 nav_cols = st.columns(len(NAV_PAGES))
 for i, (col, pg) in enumerate(zip(nav_cols, NAV_PAGES)):
