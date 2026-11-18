@@ -601,7 +601,6 @@ real_sets = [k for k, v in SRC.items() if v == "real"]
 synth_sets = [k for k, v in SRC.items() if v == "synthetic"]
 
 # Portfolio-style application masthead
-st.image("assets/cover.svg", use_container_width=True)
 st.title("The Nainital Carrying Capacity Cockpit")
 st.markdown("**An interactive decision-support dashboard for sustainable mountain tourism governance.**")
 st.caption("Urban Immersion fieldwork · Mall Road, Nainital · Explore infrastructure, water and energy stress, resident experience, livelihoods and policy scenarios.")
