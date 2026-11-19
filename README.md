@@ -1,5 +1,12 @@
 # Nainital Carrying Capacity Cockpit
 
+
+<div align="center">
+
+[![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)](#) [![Streamlit](https://img.shields.io/badge/Streamlit-app-FF4B4B?logo=streamlit&logoColor=white)](#) [![Pandas](https://img.shields.io/badge/Pandas-data-150458?logo=pandas&logoColor=white)](#) [![Plotly](https://img.shields.io/badge/Plotly-charts-3F4F75?logo=plotly&logoColor=white)](#) [![scikit-learn](https://img.shields.io/badge/scikit--learn-analysis-F7931E?logo=scikitlearn&logoColor=white)](#)
+
+</div>
+
 **An interactive decision-support dashboard for understanding the pressures of tourism on infrastructure, water and energy systems, residents, workers and local enterprises along Nainital's Mall Road.**
 
 This repository's Streamlit application is the portfolio experience. It is designed to be explored directly: navigate the five dashboard sections, inspect the underlying variable definitions and data diagnostics, and test illustrative policy scenarios.
@@ -63,9 +70,6 @@ Configure private data using `APP_DATA_DIR` in the hosting environment if the de
 - Workers and tourists remain Mall-Road-wide where equivalent coordinates are unavailable.
 - Synthetic fallback values are demonstrations, not observed fieldwork findings. Always inspect Data Diagnostics and verify that the intended datasets report `REAL` before interpreting outputs.
 
-## Tech Stack
-
-Python · Streamlit · pandas · NumPy · Plotly · SciPy · scikit-learn · openpyxl
 
 ## Project context
 
