@@ -22,6 +22,14 @@ streamlit run app.py
 
 For a hosted portfolio, deploy this repository using [Streamlit Community Cloud](https://share.streamlit.io/): select the repository, branch `main`, and main file `app.py`.
 
+## Fieldwork report
+
+A written companion to the dashboard is available in the repository:
+
+- [Read the fieldwork findings and AI report](docs/fieldwork-report.md)
+
+The report covers infrastructure readiness, water and energy stress, resident friction, informal livelihood vulnerability, policy scenario simulations and study limitations. The figures are presented as preliminary fieldwork findings; scenario projections are illustrative rather than causal forecasts.
+
 ## What the cockpit contains
 
 | Section | What to explore |
