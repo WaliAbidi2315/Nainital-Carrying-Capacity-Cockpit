@@ -63,7 +63,7 @@ Configure private data using `APP_DATA_DIR` in the hosting environment if the de
 - Workers and tourists remain Mall-Road-wide where equivalent coordinates are unavailable.
 - Synthetic fallback values are demonstrations, not observed fieldwork findings. Always inspect Data Diagnostics and verify that the intended datasets report `REAL` before interpreting outputs.
 
-## Tech stack
+## Tech Stack
 
 Python · Streamlit · pandas · NumPy · Plotly · SciPy · scikit-learn · openpyxl
 
